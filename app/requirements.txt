@@ -1,0 +1,9 @@
+streamlit
+python-dotenv
+openai
+langchain-text-splitters
+langchain-openai
+langchain-community
+langchain-chroma
+pypdf
+pageindex
