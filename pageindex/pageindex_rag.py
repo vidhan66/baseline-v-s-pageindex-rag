@@ -53,8 +53,12 @@ async def run_pageindex_query(pdf_path: str, query: str, memory: List[str] | Non
     pi_client = PageIndexClient(api_key=pageindex_api_key)
     oa_client = openai.AsyncOpenAI(api_key=openai_api_key)
 
-    submit_resp = pi_client.submit_document(pdf_path)
-    doc_id = submit_resp["doc_id"] if isinstance(submit_resp, dict) else str(submit_resp)
+    existing_doc_id = (os.getenv("PAGEINDEX_DOC_ID") or "").strip()
+    if existing_doc_id:
+        doc_id = existing_doc_id
+    else:
+        submit_resp = pi_client.submit_document(pdf_path)
+        doc_id = submit_resp["doc_id"] if isinstance(submit_resp, dict) else str(submit_resp)
     max_wait_seconds = int(os.getenv("PAGEINDEX_READY_TIMEOUT_SEC", "300"))
     poll_interval_seconds = int(os.getenv("PAGEINDEX_READY_POLL_SEC", "5"))
     elapsed = 0
@@ -115,6 +119,7 @@ Provide a clear concise answer based only on context.
     return {
         "ok": True,
         "answer": answer,
+        "doc_id": doc_id,
         "token_usage": token_usage,
         "elapsed_ms": int((time.perf_counter() - start) * 1000),
     }

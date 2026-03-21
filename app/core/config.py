@@ -26,6 +26,8 @@ class AppConfig:
     # Simple per-strategy conversation memory (turns)
     memory_turns: int = field(default_factory=lambda: int(os.getenv("MEMORY_TURNS", "4")))
 
-    # Timeout per strategy answer call
-    answer_timeout_sec: int = field(default_factory=lambda: int(os.getenv("ANSWER_TIMEOUT_SEC", "45")))
+    # Timeouts per strategy answer call
+    answer_timeout_sec: int = field(default_factory=lambda: int(os.getenv("ANSWER_TIMEOUT_SEC", "120")))
+    baseline_timeout_sec: int = field(default_factory=lambda: int(os.getenv("BASELINE_TIMEOUT_SEC", "240")))
+    pageindex_timeout_sec: int = field(default_factory=lambda: int(os.getenv("PAGEINDEX_TIMEOUT_SEC", "120")))
 

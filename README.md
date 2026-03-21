@@ -16,5 +16,8 @@ This repo now includes an `app` directory with a simple Streamlit UI that:
 2. Set env vars in `.env`:
    - `OPENAI_API_KEY=...`
    - `PAGEINDEX_API_KEY=...`
+   - Optional timeout tuning:
+     - `BASELINE_TIMEOUT_SEC=180`
+     - `PAGEINDEX_TIMEOUT_SEC=90`
 3. Start app:
    - `streamlit run app/streamlit_app.py`
