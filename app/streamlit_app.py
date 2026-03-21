@@ -55,7 +55,18 @@ def init_state() -> None:
     st.session_state.pdf_path = ""
     st.session_state.baseline_memory: List[MemoryTurn] = []
     st.session_state.pageindex_memory: List[MemoryTurn] = []
+    st.session_state.openai_api_key = ""
+    st.session_state.pageindex_api_key = ""
     st.session_state.initialized = True
+
+
+def apply_runtime_api_keys() -> None:
+    openai_key = (st.session_state.get("openai_api_key") or "").strip()
+    pageindex_key = (st.session_state.get("pageindex_api_key") or "").strip()
+    if openai_key:
+        os.environ["OPENAI_API_KEY"] = openai_key
+    if pageindex_key:
+        os.environ["PAGEINDEX_API_KEY"] = pageindex_key
 
 
 async def run_both(question: str):
@@ -81,12 +92,21 @@ def main() -> None:
     st.title("Baseline RAG vs PageIndex RAG")
     st.caption("Upload one PDF, ask one question, compare both answers side-by-side.")
 
-    if not cfg.openai_api_key:
-        st.error("Missing OPENAI_API_KEY in environment.")
-        st.stop()
-    if not cfg.pageindex_api_key:
-        st.error("Missing PAGEINDEX_API_KEY in environment.")
-        st.stop()
+    with st.sidebar:
+        st.subheader("API Keys")
+        st.text_input(
+            "OpenAI API Key",
+            key="openai_api_key",
+            type="password",
+            help="Used by both Baseline and PageIndex answer generation.",
+        )
+        st.text_input(
+            "PageIndex API Key",
+            key="pageindex_api_key",
+            type="password",
+            help="Used to submit/query document nodes from PageIndex.",
+        )
+        st.caption("Keys are used for this app session only.")
 
     uploaded = st.file_uploader("Upload PDF", type=["pdf"])
     if uploaded is not None and st.button("Index PDF", type="primary"):
@@ -110,6 +130,13 @@ def main() -> None:
     ask_clicked = st.button("Ask", type="secondary")
 
     if ask_clicked:
+        apply_runtime_api_keys()
+        if not ((st.session_state.get("openai_api_key") or "").strip() or cfg.openai_api_key):
+            st.warning("Please provide your OpenAI API key in the sidebar.")
+            st.stop()
+        if not ((st.session_state.get("pageindex_api_key") or "").strip() or cfg.pageindex_api_key):
+            st.warning("Please provide your PageIndex API key in the sidebar.")
+            st.stop()
         if not st.session_state.pdf_indexed:
             st.warning("Please upload and index a PDF first.")
             st.stop()

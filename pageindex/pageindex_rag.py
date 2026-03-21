@@ -19,9 +19,6 @@ class Config:
 
 load_dotenv()
 
-pi_client = PageIndexClient(api_key=os.getenv("PAGEINDEX_API_KEY"))
-oa_client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
 async def call_llm(prompt, model="gpt-4o-mini", temperature=0):
     logger.info("Calling LLM model=%s, prompt_chars=%d", model, len(prompt))
     response = await oa_client.chat.completions.create(
@@ -37,6 +34,8 @@ async def call_llm(prompt, model="gpt-4o-mini", temperature=0):
 async def run_pageindex_query(pdf_path: str, query: str, memory: List[str] | None = None) -> dict:
     start = time.perf_counter()
     token_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    pageindex_api_key = os.getenv("PAGEINDEX_API_KEY")
 
     def _accumulate_usage(resp):
         usage = resp.usage
@@ -45,12 +44,14 @@ async def run_pageindex_query(pdf_path: str, query: str, memory: List[str] | Non
             token_usage["completion_tokens"] += int(getattr(usage, "completion_tokens", 0) or 0)
             token_usage["total_tokens"] += int(getattr(usage, "total_tokens", 0) or 0)
 
-    if not os.getenv("OPENAI_API_KEY"):
+    if not openai_api_key:
         raise ValueError("OPENAI_API_KEY not set in environment")
-    if not os.getenv("PAGEINDEX_API_KEY"):
+    if not pageindex_api_key:
         raise ValueError("PAGEINDEX_API_KEY not set in environment")
     if not os.path.exists(pdf_path):
         raise FileNotFoundError(f"PDF not found at: {pdf_path}")
+    pi_client = PageIndexClient(api_key=pageindex_api_key)
+    oa_client = openai.AsyncOpenAI(api_key=openai_api_key)
 
     submit_resp = pi_client.submit_document(pdf_path)
     doc_id = submit_resp["doc_id"] if isinstance(submit_resp, dict) else str(submit_resp)
