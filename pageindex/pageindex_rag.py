@@ -6,8 +6,6 @@ import openai
 import json
 import asyncio
 import logging
-import subprocess
-import sys
 import time
 import hashlib
 from pathlib import Path
@@ -20,10 +18,6 @@ class Config:
     DEFAULT_PDF_PATH = r"C:\Users\vidha\Downloads\The Art of Persuasion by Bob Burg.pdf"
 
 load_dotenv()
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
 
 def _default_cache_path_for_pdf(pdf_path: str) -> str:
     """Return a stable, per-PDF path for the PageIndex tree cache file.
@@ -58,11 +52,6 @@ async def call_llm(prompt, model="gpt-4o-mini", temperature=0):
     text = (response.choices[0].message.content or "").strip()
     logger.info("LLM response received, output_chars=%d", len(text))
     return text
-
-
-# ---------------------------------------------------------------------------
-# prepare_pageindex_index  (one-time, offline step — mirrors prepare_baseline_index)
-# ---------------------------------------------------------------------------
 
 def prepare_pageindex_index(
     pdf_path: str,
@@ -99,7 +88,7 @@ def prepare_pageindex_index(
     resolved_cache_path = cache_path or _default_cache_path_for_pdf(pdf_path)
     pi_client = PageIndexClient(api_key=pageindex_api_key)
 
-    # ── 1. Submit document (or reuse existing doc_id from env) ──────────────
+    # 1. Submit document (or reuse existing doc_id from env) 
     existing_doc_id = (os.getenv("PAGEINDEX_DOC_ID") or "").strip()
     if existing_doc_id:
         doc_id = existing_doc_id
@@ -124,7 +113,7 @@ def prepare_pageindex_index(
             raise ValueError(f"Could not extract doc_id from submit response: {submit_resp}")
         logger.info("prepare: document submitted, doc_id=%s", doc_id)
 
-    # ── 2. Poll until retrieval is ready ────────────────────────────────────
+    # 2. Poll until retrieval is ready 
     elapsed = 0
     while elapsed < max_wait_seconds:
         if pi_client.is_retrieval_ready(doc_id):
@@ -136,14 +125,14 @@ def prepare_pageindex_index(
     else:
         raise TimeoutError(f"PageIndex not ready within {max_wait_seconds}s for doc_id={doc_id}")
 
-    # ── 3. Fetch the full tree (with node text + summaries) ─────────────────
+    # 3. Fetch the full tree (with node text + summaries) 
     logger.info("prepare: fetching document tree")
     tree = pi_client.get_tree(doc_id, node_summary=True)["result"]
     node_map = utils.create_node_mapping(tree)
     node_count = len(node_map)
     logger.info("prepare: tree fetched, %d nodes", node_count)
 
-    # ── 4. Persist everything to the local cache ────────────────────────────
+    # 4. Persist everything to the local cache
     cache_payload = {
         "doc_id": doc_id,
         "pdf_path": os.path.abspath(pdf_path),
@@ -160,11 +149,6 @@ def prepare_pageindex_index(
         "cache_path": resolved_cache_path,
         "node_count": node_count,
     }
-
-
-# ---------------------------------------------------------------------------
-# run_pageindex_query_cached  (hot path — mirrors run_baseline_query_cached)
-# ---------------------------------------------------------------------------
 
 async def run_pageindex_query_cached(
     pdf_path: str,
@@ -197,7 +181,7 @@ async def run_pageindex_query_cached(
             token_usage["completion_tokens"] += int(getattr(usage, "completion_tokens", 0) or 0)
             token_usage["total_tokens"] += int(getattr(usage, "total_tokens", 0) or 0)
 
-    # ── 1. Load pre-built cache ──────────────────────────────────────────────
+    # 1. Load pre-built cache
     resolved_cache_path = cache_path or _default_cache_path_for_pdf(pdf_path)
     cache = _load_cache(resolved_cache_path)
     doc_id = cache["doc_id"]
@@ -209,7 +193,7 @@ async def run_pageindex_query_cached(
 
     oa_client = openai.AsyncOpenAI(api_key=openai_api_key)
 
-    # ── 2. Tree search: find relevant nodes ──────────────────────────────────
+    # 2. Tree search: find relevant nodes
     search_prompt = f"""
 You are given a question and a tree structure of a document.
 Each node contains a node id, node title, and a corresponding summary.
@@ -236,7 +220,7 @@ Return JSON only:
         raise
     node_list = tree_search_result_json.get("node_list", [])
 
-    # ── 3. Assemble context from retrieved nodes ─────────────────────────────
+    # 3. Assemble context from retrieved nodes 
     relevant_content = "\n\n".join(
         node_map[node_id]["text"] for node_id in node_list if node_id in node_map
     )
@@ -246,7 +230,7 @@ Return JSON only:
         len(node_list), context_chars, context_chars // 4,
     )
 
-    # ── 4. Generate answer ───────────────────────────────────────────────────
+    # 4. Generate answer 
     memory_text = "\n".join(memory or []) if memory else "No previous conversation."
     answer_prompt = f"""
 Answer the question based on the context and conversation memory:
@@ -277,11 +261,6 @@ Provide a clear concise answer based only on context.
         },
         "elapsed_ms": int((time.perf_counter() - start) * 1000),
     }
-
-
-# ---------------------------------------------------------------------------
-# run_pageindex_query  (original — submit + poll every call, kept for compat)
-# ---------------------------------------------------------------------------
 
 async def run_pageindex_query(pdf_path: str, query: str, memory: List[str] | None = None) -> dict:
     start = time.perf_counter()
@@ -375,11 +354,6 @@ Provide a clear concise answer based only on context.
         "token_usage": token_usage,
         "elapsed_ms": int((time.perf_counter() - start) * 1000),
     }
-
-
-# ---------------------------------------------------------------------------
-# CLI entry-point (unchanged behaviour, now uses cached path when available)
-# ---------------------------------------------------------------------------
 
 async def main():
     if not os.getenv("OPENAI_API_KEY"):
