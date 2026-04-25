@@ -81,7 +81,8 @@ Question
 ```
 
 Both pipelines run in separate worker processes via `ProcessPoolExecutor`. This is necessary because Streamlit's main thread owns an event loop that conflicts with `asyncio.run()`, and it ensures a crash in one pipeline never affects the other.
-
+## Live App:
+https://vidhan66-compare-rag.hf.space/
 ## Tech Stack
 
 | Layer | Baseline | PageIndex |
